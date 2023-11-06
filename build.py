@@ -35,7 +35,7 @@ def web():
 def serve():
     """Serve current dir over http"""
     try:
-        subprocess.run(['npx','http-server','.'], check=True)
+        subprocess.run(['npx.cmd','http-server','.'], check=True)
     except Exception as e:
         click.echo(f"Error while starting the HTTP server! {e}")
 
