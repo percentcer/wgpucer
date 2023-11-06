@@ -1,13 +1,13 @@
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
+use std::fmt;
 use winit::{
     dpi::PhysicalSize,
     event::*,
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
-
 struct State {
     surface: wgpu::Surface,
     device: wgpu::Device,
@@ -94,8 +94,13 @@ impl State {
         &self.window
     }
 
-    fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-        todo!()
+    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+        if new_size.width > 0 && new_size.height > 0 {
+            self.size = new_size;
+            self.config.width = new_size.width;
+            self.config.height = new_size.height;
+            self.surface.configure(&self.device, &self.config);
+        }
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
@@ -143,7 +148,7 @@ pub async fn run() {
             .expect("Couldn't append canvas to document body");
     }
 
-    let state = State::new(window).await;
+    let mut state = State::new(window).await;
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
@@ -160,6 +165,14 @@ pub async fn run() {
                     },
                 ..
             } => *control_flow = ControlFlow::Exit,
+            WindowEvent::Resized(physical_size) => {
+                // println!("resize {}x{}", physical_size.width, physical_size.height);
+                state.resize(*physical_size);
+            },
+            WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                // new inner size is passed as &&mut
+                state.resize(**new_inner_size);
+            },
             _ => {}
         },
         _ => {}
