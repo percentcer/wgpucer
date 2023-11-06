@@ -48,7 +48,7 @@ impl State {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     features: wgpu::Features::empty(),
-                    limits: wgpu::Limits::default(),
+                    limits: wgpu::Limits::downlevel_webgl2_defaults(), // todo: keep webgl2 defaults until I can figure out the sRGB problem
                     label: None,
                 },
                 None, // trace_path
