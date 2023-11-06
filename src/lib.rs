@@ -1,6 +1,7 @@
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
+use log::warn;
 use std::fmt;
 use winit::{
     dpi::PhysicalSize,
@@ -25,7 +26,7 @@ impl State {
         // Backends::all imply Vulkan, Metal, DX12 and WebGPU
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
-            dx12_shader_compiler: Default::default(),
+            ..Default::default()
         });
 
         // # Safety
@@ -47,12 +48,7 @@ impl State {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     features: wgpu::Features::empty(),
-                    // todo: remove webgl stuff after confirming tutorial works
-                    limits: if cfg!(target_arch = "wasm32") {
-                        wgpu::Limits::downlevel_webgl2_defaults()
-                    } else {
-                        wgpu::Limits::default()
-                    },
+                    limits: wgpu::Limits::default(),
                     label: None,
                 },
                 None, // trace_path
@@ -69,6 +65,11 @@ impl State {
             .find(|f| f.is_srgb())
             .unwrap_or(surface_capabilities.formats[0]);
 
+        for s in surface_capabilities.formats {
+            println!("{:?}", s);
+            warn!("{:?}", s);
+        }
+
         let size = window.inner_size();
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -77,7 +78,7 @@ impl State {
             height: size.height,
             present_mode: surface_capabilities.present_modes[0],
             alpha_mode: surface_capabilities.alpha_modes[0],
-            view_formats: vec![],
+            view_formats: vec![surface_format.add_srgb_suffix()],
         };
         surface.configure(&device, &config);
         Self {
@@ -133,10 +134,12 @@ impl State {
                         b: 0.3,
                         a: 1.0,
                     }),
-                    store: true,
+                    store: wgpu::StoreOp::Store,
                 },
             })],
             depth_stencil_attachment: None,
+            occlusion_query_set: None,
+            timestamp_writes: None,
         });
         drop(render_pass); // release borrow
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -190,7 +193,7 @@ pub async fn run() {
                 // Out of memory, not much we can do
                 Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                 // Print other unknowns
-                Err(e) => println!("{:?}", e),                
+                Err(e) => println!("{:?}", e),
             }
         }
         Event::MainEventsCleared => {
