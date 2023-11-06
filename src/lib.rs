@@ -48,7 +48,7 @@ impl State {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     features: wgpu::Features::empty(),
-                    limits: wgpu::Limits::downlevel_webgl2_defaults(), // todo: keep webgl2 defaults until I can figure out the sRGB problem
+                    limits: wgpu::Limits::default(),
                     label: None,
                 },
                 None, // trace_path
@@ -114,9 +114,17 @@ impl State {
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
-        let view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
+
+        // we want the view to be srgb regardless of the underlying texture
+        let view = output.texture.create_view(&wgpu::TextureViewDescriptor {
+            format: if output.texture.format().is_srgb() {
+                Some(output.texture.format())
+            } else {
+                Some(output.texture.format().add_srgb_suffix())
+            },
+            ..wgpu::TextureViewDescriptor::default()
+        });
+
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
