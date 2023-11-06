@@ -1,2 +1,2 @@
 # wgpucer
-Following https://sotrh.github.io/learn-wgpu/#what-is-wgpu
+Following along https://sotrh.github.io/learn-wgpu/
