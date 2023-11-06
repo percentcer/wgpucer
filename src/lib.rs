@@ -2,9 +2,9 @@
 use wasm_bindgen::prelude::*;
 
 use log::warn;
-use std::fmt;
+
 use winit::{
-    dpi::PhysicalSize,
+    // dpi::PhysicalSize,
     event::*,
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
@@ -104,7 +104,7 @@ impl State {
         }
     }
 
-    fn input(&mut self, event: &WindowEvent) -> bool {
+    fn input(&mut self, _event: &WindowEvent) -> bool {
         false
     }
 
@@ -184,7 +184,7 @@ pub async fn run() {
     let mut state = State::new(window).await;
 
     event_loop.run(move |event, _, control_flow| match event {
-        Event::RedrawRequested(window_id) if window_id == state.window.id() => {
+        Event::RedrawRequested(window_id) if window_id == state.window().id() => {
             state.update();
             match state.render() {
                 Ok(_) => {}
@@ -198,12 +198,12 @@ pub async fn run() {
         }
         Event::MainEventsCleared => {
             // manually request a redraw
-            state.window.request_redraw();
+            state.window().request_redraw();
         }
         Event::WindowEvent {
             ref event,
             window_id,
-        } if window_id == state.window.id() => {
+        } if window_id == state.window().id() => {
             if !state.input(event) {
                 match event {
                     WindowEvent::CloseRequested
