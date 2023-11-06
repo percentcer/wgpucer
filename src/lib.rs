@@ -112,7 +112,37 @@ impl State {
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        todo!()
+        let output = self.surface.get_current_texture()?;
+        let view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Render Encoder"),
+            });
+        let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Render Pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color {
+                        r: 0.1,
+                        g: 0.2,
+                        b: 0.3,
+                        a: 1.0,
+                    }),
+                    store: true,
+                },
+            })],
+            depth_stencil_attachment: None,
+        });
+        drop(render_pass); // release borrow
+        self.queue.submit(std::iter::once(encoder.finish()));
+        output.present();
+
+        Ok(())
     }
 }
 
@@ -151,6 +181,22 @@ pub async fn run() {
     let mut state = State::new(window).await;
 
     event_loop.run(move |event, _, control_flow| match event {
+        Event::RedrawRequested(window_id) if window_id == state.window.id() => {
+            state.update();
+            match state.render() {
+                Ok(_) => {}
+                // Reconfigure surface if we lost it
+                Err(wgpu::SurfaceError::Lost) => state.resize(state.size),
+                // Out of memory, not much we can do
+                Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+                // Print other unknowns
+                Err(e) => println!("{:?}", e),                
+            }
+        }
+        Event::MainEventsCleared => {
+            // manually request a redraw
+            state.window.request_redraw();
+        }
         Event::WindowEvent {
             ref event,
             window_id,
