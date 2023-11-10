@@ -156,9 +156,7 @@ impl State {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[
-                    Vertex::desc(),
-                ],
+                buffers: &[Vertex::desc()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -291,9 +289,19 @@ pub async fn run() {
     {
         // winit  prevents css sizing
         use winit::dpi::PhysicalSize;
-        window.set_inner_size(PhysicalSize::new(450, 400));
 
         use winit::platform::web::WindowExtWebSys;
+        web_sys::window()
+            .and_then(|win| win.document())
+            .and_then(|doc| {
+                let html = doc.get_element_by_id("root_html")?;
+                let width = html.client_width();
+                let height = html.client_height();
+                let sz = std::cmp::min(width, height);
+                window.set_inner_size(PhysicalSize::new(width, height));
+                Some(())
+            });
+
         web_sys::window()
             .and_then(|win| win.document())
             .and_then(|doc| {
