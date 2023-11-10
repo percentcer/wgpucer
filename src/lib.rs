@@ -3,11 +3,65 @@ use wasm_bindgen::prelude::*;
 
 use log::warn;
 
+use wgpu::util::DeviceExt;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct Vertex {
+    position: [f32; 3],
+    color: [f32; 3],
+}
+
+impl Vertex {
+    const ATTRIBUTES: [wgpu::VertexAttribute; 2] =
+        wgpu::vertex_attr_array![0 => Float32x3, 1=>Float32x3];
+
+    fn desc() -> wgpu::VertexBufferLayout<'static> {
+        use std::mem;
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &Self::ATTRIBUTES,
+            // attributes: &[
+            //     wgpu::VertexAttribute {
+            //         offset: 0,
+            //         shader_location: 0,
+            //         format: wgpu::VertexFormat::Float32x3,
+            //     },
+            //     wgpu::VertexAttribute {
+            //         offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+            //         shader_location: 1,
+            //         format: wgpu::VertexFormat::Float32x3,
+            //     },
+            // ],
+        }
+    }
+}
+
+// todo: not sure if need these?
+// unsafe impl bytemuck::Pod for Vertex {}
+// unsafe impl bytemuck::Zeroable for Vertex {}
+
+const VERTICES: &[Vertex] = &[
+    Vertex {
+        position: [0.0, 0.5, 0.0],
+        color: [1.0, 0.0, 0.0],
+    },
+    Vertex {
+        position: [-0.5, -0.5, 0.0],
+        color: [0.0, 1.0, 0.0],
+    },
+    Vertex {
+        position: [0.5, -0.5, 0.0],
+        color: [0.0, 0.0, 1.0],
+    },
+];
+
 struct State {
     surface: wgpu::Surface,
     device: wgpu::Device,
@@ -15,6 +69,8 @@ struct State {
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
+    vertex_buffer: wgpu::Buffer,
+    num_vertices: u32,
     // window must be declared after the surface (todo: why?)
     window: Window,
 }
@@ -100,7 +156,9 @@ impl State {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[],
+                buffers: &[
+                    Vertex::desc(),
+                ],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -126,8 +184,15 @@ impl State {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            multiview: None // VR & array layers(?)
+            multiview: None, // VR & array layers(?)
         });
+
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(VERTICES),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+        let num_vertices = VERTICES.len() as u32;
 
         Self {
             window,
@@ -136,7 +201,9 @@ impl State {
             queue,
             config,
             size,
-            render_pipeline
+            render_pipeline,
+            vertex_buffer,
+            num_vertices,
         }
     }
 
@@ -195,7 +262,8 @@ impl State {
             timestamp_writes: None,
         });
         render_pass.set_pipeline(&self.render_pipeline);
-        render_pass.draw(0..3, 0..1);
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        render_pass.draw(0..self.num_vertices, 0..1);
         drop(render_pass); // release borrow
 
         self.queue.submit(std::iter::once(encoder.finish()));
